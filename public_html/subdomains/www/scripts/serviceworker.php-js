@@ -1,0 +1,97 @@
+<?php
+namespace TeacherStory\Pages\WWW\Scripts;
+
+use LDLib\Server\ServerContext;
+use Swoole\Http\Request;
+use Swoole\Http\Response;
+
+class ServiceWorker {
+    private static ?string $c_hash = null;
+
+    public static function getHash() {
+        return self::$c_hash ??= hash('md5',self::getPage(withHash:false));
+    }
+
+    public static function getPage(?Request $request=null, ?Response $response=null, bool $withHash=true) {
+        $response?->header('Content-Type','text/javascript');
+        $v = <<<JAVASCRIPT
+        class SW {
+            initStarted = false;
+            readyForUpdate = false;
+
+            static async postMessage(msg) {
+                const registration = await navigator.serviceWorker.ready;
+                if (registration.active == null) {
+                    console.error(`Couldn't send message to service worker. msg:\${msg}`);
+                    return false;
+                }
+                registration.active.postMessage(msg);
+                return true;
+            }
+
+            static async init() {
+                if (this.initStarted) return;
+                this.initStarted = true;
+
+                try {
+                    const registration = await navigator.serviceWorker.register("/scripts/sw/sw.js", {scope:'/',updateViaCache:'none'});
+                    let prevState = null;
+                    let state = null;
+                    let wasWaiting = false;
+                    let to = setInterval(() => {
+                        if (registration.installing != null) state = 'installing';
+                        else if (registration.waiting != null) state = 'waiting';
+                        else if (registration.active != null) state = 'active';
+                        else {
+                            if (prevState === 'installing') state = 'INSTALLATION_ERROR';
+                            else state = 'ERROR';
+                        }
+
+                        if (state != prevState) {
+                            console.info(`Service Worker: \${state}`);
+                            if (state === 'waiting') {
+                                navigator.serviceWorker.startMessages();
+                                registration.waiting.postMessage('skip waiting');
+                                wasWaiting = true;
+                            } else if (state === 'active' || (state !== 'installing' && state !== 'waiting' && state !== 'active')) {
+                                clearInterval(to);
+                                if (wasWaiting) { window.location.reload(); }
+                                else if (registration.active != null) {
+                                    navigator.serviceWorker.addEventListener('message', (res) => {
+                                        Events.trigger(new EventObject('sw_message',res));
+                                        if (res?.data === 'trigger updateServiceWorker') {
+                                            registration.update().then((newRegistration) => {
+                                                let intUpdate = setInterval(() => {
+                                                    if (newRegistration.waiting != null) {
+                                                        SW.readyForUpdate = true;
+                                                        Events.trigger(new EventObject('sw_readyForUpdate'));
+                                                        clearInterval(intUpdate);
+                                                    }
+                                                },50);
+                                            });
+                                            return;
+                                        }
+
+                                        if (res?.data?.name === 'init_files') Events.trigger(new EventObject('init_files',res.data));
+                                    });
+                                    SW.postMessage('check swHash');
+                                    SW.postMessage('give init_files');
+                                    SW.postMessage('give sw_infos');
+                                }
+                            }
+                            Events.trigger(new EventObject('sw_init_state',state));
+                            prevState = state;
+                        }
+                    },50);
+                } catch (error) {
+                    alert(`Service Worker error: Registration failed with \${error}`);
+                }
+            }
+        }
+
+        JAVASCRIPT;
+        if ($withHash) $response?->header('ETag',self::getHash());
+        return ($request != null && $response != null) ? ServerContext::applyContentEncoding($request,$response,$v) : $v;
+    }
+}
+?>

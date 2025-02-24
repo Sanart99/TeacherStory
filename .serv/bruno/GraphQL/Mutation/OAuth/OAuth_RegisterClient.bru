@@ -1,0 +1,48 @@
+meta {
+  name: OAuth_RegisterClient
+  type: graphql
+  seq: 2
+}
+
+post {
+  url: {{link_graphql}}
+  body: graphql
+  auth: none
+}
+
+body:graphql {
+  mutation OAuth_RegisterClient(
+    $clientName: String!
+    $redirectURIs: [String!]!
+    $website: String
+    $description: String
+    $logo: String
+  ) {
+    oauth_registerClient(
+      clientName: $clientName
+      redirectURIs: $redirectURIs
+      website: $website
+      description: $description
+      logo: $logo
+    ) {
+      success
+      resultCode
+      resultMessage
+    }
+  }
+  
+}
+
+body:graphql:vars {
+  {
+    "clientName": "test",
+    "redirectURIs": [
+      "https://datatracker.ietf.org/doc/html/rfc6749",
+      "https://datatracker.ietf.org",
+      "https://datatracker.ietf.orga"
+    ],
+    "website": null,
+    "description": null,
+    "logo": null
+  }
+}

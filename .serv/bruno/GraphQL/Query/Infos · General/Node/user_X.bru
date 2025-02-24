@@ -1,0 +1,42 @@
+meta {
+  name: user_X
+  type: graphql
+  seq: 5
+}
+
+post {
+  url: {{link_graphql}}
+  body: graphql
+  auth: none
+}
+
+body:graphql {
+  query {
+    node(id: "user_1") {
+      id
+      ... on RegisteredUser {
+      	dbId
+        name
+        roles
+      }
+    }
+  }
+  
+}
+
+body:graphql:vars {
+  {
+  	"keywords": "test",
+  	"first": 10,
+  	"sortBy": "ByDate",
+  	"startDate": null,
+  	"endDate": null,
+  	"userIds": null,
+  	"threadType": "Standard",
+  	"searchAreas": [
+  		"comments"
+  	],
+  	"skipPages": 0,
+  	"after": null
+  }
+}

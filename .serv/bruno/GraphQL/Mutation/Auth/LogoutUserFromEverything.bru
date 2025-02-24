@@ -1,0 +1,21 @@
+meta {
+  name: LogoutUserFromEverything
+  type: graphql
+  seq: 5
+}
+
+post {
+  url: {{link_graphql}}
+  body: graphql
+  auth: none
+}
+
+body:graphql {
+  mutation LogoutUserFromEverything {
+  	logoutUserFromEverything {
+  		success
+  		resultCode
+  		resultMessage
+  	}
+  }
+}

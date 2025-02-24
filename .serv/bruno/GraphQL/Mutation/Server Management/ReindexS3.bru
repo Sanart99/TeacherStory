@@ -1,0 +1,29 @@
+meta {
+  name: ReindexS3
+  type: graphql
+  seq: 2
+}
+
+post {
+  url: {{link_graphql}}
+  body: graphql
+  auth: none
+}
+
+body:graphql {
+  mutation ReindexS3($tableName: String!, $bucketName: String!) {
+    reindexS3(tableName: $tableName, bucketName: $bucketName) {
+      success
+      resultCode
+      resultMessage
+    }
+  }
+  
+}
+
+body:graphql:vars {
+  {
+  	"tableName": "tableName",
+  	"bucketName": "bucketName"
+  }
+}

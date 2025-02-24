@@ -1,0 +1,22 @@
+meta {
+  name: WorkersStats
+  type: graphql
+  seq: 4
+}
+
+post {
+  url: {{link_graphql}}
+  body: graphql
+  auth: none
+}
+
+body:graphql {
+  query WorkersStats {
+  	workersStats {
+  		workerId
+  		nRequests
+      memUsage
+      memUsage_true
+  	}
+  }
+}

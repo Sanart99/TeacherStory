@@ -1,0 +1,22 @@
+meta {
+  name: ReloadServer
+  type: graphql
+  seq: 3
+}
+
+post {
+  url: {{link_graphql}}
+  body: graphql
+  auth: none
+}
+
+body:graphql {
+  mutation ReloadServer {
+    reloadServer {
+      success
+      resultCode
+      resultMessage
+    }
+  }
+  
+}

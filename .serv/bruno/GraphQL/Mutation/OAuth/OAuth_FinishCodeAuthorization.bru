@@ -1,0 +1,29 @@
+meta {
+  name: OAuth_FinishCodeAuthorization
+  type: graphql
+  seq: 1
+}
+
+post {
+  url: {{link_graphql}}
+  body: graphql
+  auth: none
+}
+
+body:graphql {
+  mutation OAuth_finishCodeAuthorization($authId: String!, $allowed: Boolean!) {
+    oauth_finishCodeAuthorization(authId: $authId, allowed: $allowed) {
+      success
+      resultCode
+      resultMessage
+    }
+  }
+  
+}
+
+body:graphql:vars {
+  {
+  	"authId": "id",
+  	"allowed": true
+  }
+}

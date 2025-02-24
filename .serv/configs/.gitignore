@@ -1,0 +1,5 @@
+*
+!.gitignore
+!*-example
+!nix_makeFiles.sh
+!ubuntu22_*.sh

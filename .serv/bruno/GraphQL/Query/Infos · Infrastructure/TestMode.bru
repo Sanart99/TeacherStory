@@ -1,0 +1,17 @@
+meta {
+  name: TestMode
+  type: graphql
+  seq: 3
+}
+
+post {
+  url: {{link_graphql}}
+  body: graphql
+  auth: none
+}
+
+body:graphql {
+  query {
+  	testMode
+  }
+}

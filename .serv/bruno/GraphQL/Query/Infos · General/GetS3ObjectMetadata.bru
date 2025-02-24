@@ -1,0 +1,21 @@
+meta {
+  name: GetS3ObjectMetadata
+  type: graphql
+  seq: 1
+}
+
+post {
+  url: {{link_graphql}}
+  body: graphql
+  auth: none
+}
+
+body:graphql {
+  query {
+  	getS3ObjectMetadata(key: "1_object") {
+      _key
+      contentType
+      contentLength
+    }
+  }
+}

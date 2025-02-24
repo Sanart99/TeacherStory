@@ -1,0 +1,44 @@
+<?php
+namespace TeacherStory\Pages\WWW;
+
+use LDLib\Utils\Utils;
+use Swoole\Http\Request;
+use Swoole\Http\Response;
+
+class Manifest {
+    private static ?string $c_hash = null;
+
+    public static function getHash() {
+        return self::$c_hash ??= hash('md5',self::getPage(withHash:false));
+    }
+
+    public static function getPage(?Request $request=null, ?Response $response=null, bool $withHash=true) {
+        $root = Utils::getRootLink();
+        $res = Utils::getRootLink('res');
+        $response?->header('Content-Type', 'application/json');
+        if ($withHash) $response?->header('ETag',self::getHash());
+        return <<<JSON
+        {
+            "name": "TeacherStory",
+            "start_url": "$root",
+            "display":"standalone",
+            "icons": [
+                {
+                    "src": "$res/icons/globe.svg",
+                    "type": "image/svg+xml",
+                    "sizes": "any",
+                    "purpose": "any"
+                },
+                {
+                    "src": "$res/icons/globe.ico",
+                    "type": "image/x-icon",
+                    "sizes": "32x32",
+                    "purpose": "any"
+                }
+            ]
+        }
+
+        JSON;
+    }
+}
+?>

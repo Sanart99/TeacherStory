@@ -1,0 +1,224 @@
+<?php
+namespace TeacherStory\Pages\WWW\Scripts\SW;
+
+use LDLib\Server\ServerContext;
+use LDLib\Utils\Utils;
+use Swoole\Http\Request;
+use Swoole\Http\Response;
+
+class Init {
+    private static ?string $c_hash = null;
+
+    public static function getHash() {
+        if (self::$c_hash == null) self::getPage(withHash:false);
+        return self::$c_hash;
+    }
+
+    public static function getPage(?Request $request=null, ?Response $response=null, bool $withHash=true) {
+        $root = Utils::getRootLink();
+        $res = Utils::getRootLink('res');
+
+        // Cache 
+        $wwwToCache = [
+            ["$root/",\TeacherStory\Pages\WWW\Index::getHash()],
+            ["$root/index.php",\TeacherStory\Pages\WWW\Index::getHash()],
+            ["$root/manifest.webmanifest",\TeacherStory\Pages\WWW\Manifest::getHash()],
+            ["$root/style.css",\TeacherStory\Pages\WWW\Style::getHash()],
+            ["$root/styleReset.css",\TeacherStory\Pages\WWW\StyleReset::getHash()],
+            ["$root/scripts/start.js",\TeacherStory\Pages\WWW\Scripts\Start::getHash()],
+            ["$root/scripts/serviceworker.js",\TeacherStory\Pages\WWW\Scripts\ServiceWorker::getHash()],
+            ["$root/scripts/events.js",\TeacherStory\Pages\WWW\Scripts\Events::getHash()],
+            ["$root/scripts/components.js",\TeacherStory\Pages\WWW\Scripts\Components::getHash()],
+            ["$root/scripts/functions.js",\TeacherStory\Pages\WWW\Scripts\Functions::getHash()],
+            ["$root/scripts/external/gsap.min.3.12.5.js",''],
+            ["$root/favicon.ico",'']
+        ];
+        $sPagesToCache = '{';
+        foreach ($wwwToCache as $a) {
+            if ($sPagesToCache != '{') $sPagesToCache .= ", ";
+            $sPagesToCache .= "'$a[0]':'$a[1]'";
+        }
+        $sPagesToCache .= '}';
+
+        $resToCache = [
+            ["$res/icons/globe.svg",''],
+            ["$res/icons/globe.ico",'']
+        ];
+        $sResToCache = '{';
+        foreach ($resToCache as $a) {
+            if ($sResToCache != '{') $sResToCache .= ", ";
+            $sResToCache .= "'$a[0]':'$a[1]'";
+        }
+        $sResToCache .= '}';
+
+        // Init files
+        $scriptsForAfterInit = [
+            "$root/scripts/functions.js",
+            "$root/scripts/components.js",
+            "$root/scripts/start.js",
+            "$root/scripts/external/gsap.min.3.12.5.js"
+        ];
+        $sScriptsForAfterInit = '';
+        foreach ($scriptsForAfterInit as $s) {
+            if ($sScriptsForAfterInit != '') $sScriptsForAfterInit .= ",";
+            $sScriptsForAfterInit .= "'$s'";
+        }
+
+        $stylesForAfterInit = [
+            "$root/styleReset.css",
+            "$root/style.css"
+        ];
+        $sStylesForAfterInit = '';
+        foreach ($stylesForAfterInit as $s) {
+            if ($sStylesForAfterInit != '') $sStylesForAfterInit .= ",";
+            $sStylesForAfterInit .= "'$s'";
+        }
+
+        // ·······················································
+
+        $response?->setHeader('Content-Type','text/javascript');
+        $response?->setHeader('Service-Worker-Allowed','/');
+
+        $v = <<<JAVASCRIPT
+        const wwwToCache = $sPagesToCache;
+        const resToCache = $sResToCache;
+        const scriptsForAfterInit = [$sScriptsForAfterInit];
+        const stylesForAfterInit = [$sStylesForAfterInit];
+        const hash_init = '[HASH_INIT]';
+        const hash_sw = '[HASH_SW]';
+        const mainCacheName = 'sw_'+hash_sw;
+        const resCacheName = 'res_'+mainCacheName;
+        const swHash = hash_init+'__'+hash_sw;
+
+        // Events
+
+        self.addEventListener('install', (event) => {
+            log('install','info');
+            event.waitUntil((async () => {
+                log('install','info');
+                await Promise.all(await cacheJob(mainCacheName, wwwToCache));
+                await Promise.all(await cacheJob(resCacheName, resToCache));
+                log('install end','info');
+            })());
+        });
+
+        self.addEventListener('activate',(ev) => {
+            log('activate','info');
+            ev.waitUntil(self.clients.claim());
+        });
+
+        self.addEventListener('fetch',(ev) => {
+            const url = new URL(ev.request.url);
+            ev.respondWith((async () => {
+                if (url.origin === '$res') {
+                    const c = await caches.open(resCacheName);
+                    let res = await c.match(ev.request.url);
+                    if (res != null) return res;
+
+                    return await fetch(url.href);
+                } else {
+                    const c = await caches.open(mainCacheName);
+                    let res = await c.match(ev.request.url);
+                    if (res != null) return res;
+
+                    return await fetch(ev.request).catch((err) => {
+                        if (err?.name === "TypeError") return new Response("Failed to fetch",{status:500});
+                        else throw err;
+                    });
+                }                
+            })());
+        });
+
+        // Functions
+
+        async function cacheJob(cacheName, urls) {
+            const cache = await caches.open(cacheName);
+            const a = [];
+            for (const [url,hash] of Object.entries(urls)) {
+                a.push(fetch(url).then((response) => {
+                    if (!response.ok) throw new TypeError("bad response status");
+                    if (hash != '' && response.headers.get('ETag') !== hash) throw new TypeError(url + ' - ' + hash + ' _ ' + response.headers.get('ETag'));
+                    return cache.put(url, response);
+                }));
+            }
+            return a;
+        }
+
+        async function updateCheck() {
+            await sendQuery('query { swHash_init(subdomain:"www") swHash_sw(subdomain:"www") }').then((json) => {
+                if (json?.errors != null) throw new Error(JSON.stringify(json.errors));
+                const newHash_init = json?.data?.swHash_init;
+                const newHash_sw = json?.data?.swHash_sw;
+                if (newHash_init != null &&  hash_init != newHash_init) {
+                    log('sw/init.js changed, updating service worker.','info');
+                    sendMessageToAll('trigger updateServiceWorker');
+                } else if (newHash_sw != null &&  hash_sw != newHash_sw) {
+                    log('sw/sw.js changed, updating service worker.','info');
+                    sendMessageToAll('trigger updateServiceWorker');
+                } else log('Service worker seems up to date.');
+            }).catch((err) => {
+                log("Couldn't check for new version.",'info');
+                if (err instanceof SendQueryError) return;
+                else throw err;
+            });
+        }
+
+        class SendQueryError extends Error { }
+        function sendQuery(query, variables, headers, operationName, moreOptions, moreData) {
+            let options = {
+                method: 'POST',
+                credentials: 'include',
+                ...moreOptions
+            };
+
+            if (moreData == null) {
+                options.headers = headers == null ? { 'Content-Type':'application/json', 'Cache-Control':'no-cache' } : headers;
+                options.body = JSON.stringify({'query':query.replace(/\s+/g, ' ').trim(), 'variables':variables, 'operationName':operationName});
+            } else {
+                const data = new FormData();
+                data.append('gqlQuery',JSON.stringify({'query':query}));
+                if (variables != null) data.append('gqlVariables',JSON.stringify(variables));
+                if (operationName != null) data.append('gqlOperationName',operationName);
+                for (const k in moreData) data.append(k,moreData[k]);
+
+                options.headers = headers == null ? { 'Cache-Control':'no-cache' } : headers;
+                options.body = data;
+            }
+
+            return fetch("{$_SERVER['LD_LINK_GRAPHQL']}",options).then((res) => {
+                if (!res.ok) throw new SendQueryError("Couldn't connect to the server.");
+                else return res.json();
+            });
+        }
+
+        async function sendMessageToOne(msg) {
+            self.clients.matchAll().then(clients => {
+                clients[0]?.postMessage(msg);
+            });
+        }
+
+        async function sendMessageToAll(msg) {
+            self.clients.matchAll().then(clients => {
+                clients.forEach(client => client.postMessage(msg));
+            });
+        }
+
+        function log(msg, type) {
+            const a = [
+                'background:rgb(88, 110, 122); color:white; border-radius:2px; display:inline-block; padding: 0px 4px',
+                'background: unset; color:unset'
+            ];
+
+            if (type === 'info') console.info(`%cSW%c \${swHash}: \${msg}`,...a);
+            else if (type === 'error') console.error(`%cSW%c \${swHash}: \${msg}`,...a);
+            else console.log(`%cSW%c \${swHash}: \${msg}`,...a);
+        }
+
+        JAVASCRIPT;
+        if ($withHash) { $response?->header('ETag',self::getHash()); $v = str_replace('[HASH_INIT]',self::getHash(),$v); }
+        else { self::$c_hash ??= hash('md5',$v); $v = str_replace('[HASH_INIT]',self::$c_hash,$v); }
+        $v = str_replace('[HASH_SW]',SW::getHash(),$v);
+        return ($request != null && $response != null) ? ServerContext::applyContentEncoding($request,$response,$v) : $v;
+    }
+}
+?>

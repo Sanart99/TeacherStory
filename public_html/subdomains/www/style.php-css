@@ -1,0 +1,28 @@
+<?php
+namespace TeacherStory\Pages\WWW;
+
+use LDLib\Server\ServerContext;
+use Swoole\Http\Request;
+use Swoole\Http\Response;
+
+class Style {
+    private static ?string $c_hash = null;
+
+    public static function getHash() {
+        return self::$c_hash ??= hash('md5',self::getPage(withHash:false));
+    }
+
+    public static function getPage(?Request $request=null, ?Response $response=null, bool $withHash=true) {
+        $response?->header('Content-Type', 'text/css');
+        $v = <<<CSS
+        :root {
+            color: white;
+            background: radial-gradient(circle 624px, #2b2b2b, hsl(0deg 0% 5%));
+        }
+
+        CSS;
+        if ($withHash) $response?->header('ETag',self::getHash());
+        return ($request != null && $response != null) ? ServerContext::applyContentEncoding($request,$response,$v) : $v;
+    }
+}
+?>

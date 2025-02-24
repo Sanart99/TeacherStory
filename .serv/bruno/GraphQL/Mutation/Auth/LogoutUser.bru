@@ -1,0 +1,22 @@
+meta {
+  name: LogoutUser
+  type: graphql
+  seq: 4
+}
+
+post {
+  url: {{link_graphql}}
+  body: graphql
+  auth: none
+}
+
+body:graphql {
+  mutation LogoutUser {
+    logoutUser {
+      success
+      resultCode
+      resultMessage
+    }
+  }
+  
+}

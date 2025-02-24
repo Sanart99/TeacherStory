@@ -1,0 +1,21 @@
+meta {
+  name: CleanLogs
+  type: graphql
+  seq: 1
+}
+
+post {
+  url: {{link_graphql}}
+  body: graphql
+  auth: none
+}
+
+body:graphql {
+  mutation CleanLogs {
+    cleanPHPLogs(test: true)
+    cleanLogs(test: true)
+    cleanSwooleHTTPLogs(test: true, seconds: 86400)
+    cleanSwooleWSLogs(test: true)
+  }
+  
+}

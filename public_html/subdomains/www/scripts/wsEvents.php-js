@@ -1,0 +1,144 @@
+<?php
+namespace TeacherStory\Pages\WWW\Scripts;
+
+use LDLib\Server\ServerContext;
+use Swoole\Http\Request;
+use Swoole\Http\Response;
+
+class WSEvents {
+    private static ?string $c_hash = null;
+
+    public static function getHash() {
+        return self::$c_hash ??= hash('md5',self::getPage(withHash:false));
+    }
+
+    public static function getPage(?Request $request=null, ?Response $response=null, bool $withHash=true) {
+        $wsLink = $_SERVER['LD_LINK_WEBSOCKET'];
+        $response?->header('Content-Type','text/javascript');
+        $v = <<<JAVASCRIPT
+        class WSEvents {
+            static ws;
+
+            static channel;
+            static isChannelManager = false;
+            static lastManagerResponseDate;
+            static managerAlreadySet = false;
+            static logBroadcastChannel = false;
+
+            static sendBrowserErrors = true;
+
+            static initialized = false;
+
+            static init() {
+                if (WSEvents.initialized) return;
+                WSEvents.initialized = true;
+                WSEvents.lastManagerResponseDate = new Date();
+
+                WSEvents.channel = new BroadcastChannel("websocket_main");
+                WSEvents.channel.addEventListener('message',(ev) => {
+                    if (WSEvents.logBroadcastChannel) console.log({'channel':'websocket_main' ,'data':ev?.data,event:ev});
+                    if (ev?.data?.managerOnly === true && WSEvents.isChannelManager !== true) return;
+
+                    switch (ev?.data?.type) {
+                        case 'triggerEvent':
+                            WSEvents.lastManagerResponseDate = new Date();
+                            ComponentsEvents.triggerEvent(ev.data.eventName,ev.data?.o);
+                            return;
+                        case 'ws_send':
+                            if (WSEvents.isChannelManager) WSEvents.ws.send(ev.data?.msg);
+                            return;
+                    }
+
+                    switch (ev.data) {
+                        case 'manager_is_set?':
+                            if (WSEvents.isChannelManager) WSEvents.channel.postMessage('manager_already_set');
+                            break;
+                        case 'ev_manager_set':
+                            WSEvents.lastManagerResponseDate = new Date();
+                            WSEvents.managerAlreadySet = true;
+                            WSEvents.unbecomeChannelManager();
+                            break;
+                        case 'manager_already_set':
+                            WSEvents.lastManagerResponseDate = new Date();
+                            WSEvents.managerAlreadySet = true;
+                            break;
+                    }
+                });
+                WSEvents.tryBecomeChannelManager();
+
+                setInterval(() => {
+                    if (WSEvents.isChannelManager) { WSEvents.lastManagerResponseDate = new Date(); return; }
+
+                    const diff = (new Date()).getTime() - WSEvents.lastManagerResponseDate.getTime();
+                    if (diff > 15000) WSEvents.tryBecomeChannelManager();
+                },15000);
+            }
+
+            static initBrowserErrorLogging() {
+                window.addEventListener('error', (error) => {
+                    if (!WSEvents.sendBrowserErrors || error.filename.includes('injectedScript') || error.filename.includes('chrome-extension')) return;
+                    WSEvents.wsSend("errorlog:"+JSON.stringify({"msg":error.message,"url":error.filename,"location":{line:error.lineno,col:error.colno}}));
+                });
+                WSEvents.sendBrowserErrors = true;
+            }
+
+            static wsSend(msg) {
+                if (WSEvents.isChannelManager) {
+                    if (WSEvents?.ws?.readyState !== 1) return false;
+                    WSEvents.ws.send(msg);
+                } else {
+                    WSEvents.channel.postMessage({type:'ws_send',msg:msg});
+                }
+                return true;
+            }
+
+            static tryBecomeChannelManager() {
+                WSEvents.managerAlreadySet = false;
+                WSEvents.channel.postMessage('manager_is_set?');
+                setTimeout(() => {
+                    if (!WSEvents.managerAlreadySet) WSEvents.becomeChannelManager();
+                },1000);
+            }
+
+            static becomeChannelManager() {
+                WSEvents.isChannelManager = true;
+                WSEvents.channel.postMessage('ev_manager_set');
+                WSEvents.servConnect();
+            }
+
+            static unbecomeChannelManager() {
+                WSEvents.isChannelManager = false;
+                WSEvents?.ws?.close();
+            }
+
+            static servConnect() {
+                if (WSEvents.ws?.readyState === 1) WSEvents.ws.close();
+
+                WSEvents.ws = new WebSocket('$wsLink');
+                WSEvents.ws.addEventListener('message',(ev) => {
+                    let json = null;
+                    try { json = JSON.parse(ev?.data); }
+                    catch (e) { return; }
+
+                    if (json?.success === true) {
+                        ComponentsEvents.triggerEvent('wsevents-ready');
+                        WSEvents.channel.postMessage({type:'triggerEvent',eventName:'wsevents-ready'});
+                    }
+
+                    for (const fieldName in json.data) if (fieldName != 'unsubscribe') {
+                        ComponentsEvents.triggerEvent('wsevent_'+fieldName,json.data[fieldName]);
+                        WSEvents.channel.postMessage({type:'triggerEvent',eventName:'wsevent_'+fieldName,o:json.data[fieldName]});
+                    }
+                });
+                WSEvents.ws.addEventListener('close',() => {
+                    if (WSEvents.isChannelManager) setTimeout(WSEvents.servConnect, 2000);
+                });
+            }
+        }
+
+        JAVASCRIPT;
+        if ($withHash) $response?->header('ETag',self::getHash());
+        return ($request != null && $response != null) ? ServerContext::applyContentEncoding($request,$response,$v) : $v;
+    }
+}
+?>

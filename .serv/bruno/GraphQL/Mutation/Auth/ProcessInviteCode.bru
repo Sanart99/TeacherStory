@@ -1,0 +1,28 @@
+meta {
+  name: ProcessInviteCode
+  type: graphql
+  seq: 6
+}
+
+post {
+  url: {{link_graphql}}
+  body: graphql
+  auth: none
+}
+
+body:graphql {
+  mutation ProcessInviteCode($code: String!) {
+    processInviteCode(code: $code) {
+      success
+      resultCode
+      resultMessage
+    }
+  }
+  
+}
+
+body:graphql:vars {
+  {
+  	"code": "SOMECODE123"
+  }
+}

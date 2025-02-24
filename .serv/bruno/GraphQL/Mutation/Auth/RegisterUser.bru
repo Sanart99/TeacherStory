@@ -1,0 +1,29 @@
+meta {
+  name: RegisterUser
+  type: graphql
+  seq: 7
+}
+
+post {
+  url: {{link_graphql}}
+  body: graphql
+  auth: none
+}
+
+body:graphql {
+  mutation RegisterUser($username: String!, $password: String!) {
+    registerUser(username: $username, password: $password) {
+      success
+      resultCode
+      resultMessage
+    }
+  }
+  
+}
+
+body:graphql:vars {
+  {
+  	"username": "user1",
+  	"password": "testtest"
+  }
+}

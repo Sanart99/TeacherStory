@@ -1,0 +1,5 @@
+{
+    "require": {
+        "lansd/ldlib": "0.4.1"
+    }
+}

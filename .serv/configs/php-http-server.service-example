@@ -1,0 +1,33 @@
+[Unit]
+Description=HTTP Server
+After=network.target mariadb.service
+StartLimitIntervalSec=1
+
+ConditionUser=root
+ConditionPathExists=[[execPath]]
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+User=root
+
+Type=notify
+NotifyAccess=all
+
+ExecStart=php '[[execPath]]'
+ExecReload=kill -SIGUSR1 $MAINPID
+ExecStop=kill -SIGTERM $MAINPID
+
+WatchdogSec=75
+WatchdogSignal=SIGTERM
+
+Restart=on-failure
+RestartSec=0
+
+TimeoutStartSec=10
+TimeoutStopSec=10
+TimeoutStartFailureMode=kill
+TimeoutStopFailureMode=kill
+
+OOMPolicy=continue

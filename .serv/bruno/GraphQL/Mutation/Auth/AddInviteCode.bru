@@ -1,0 +1,29 @@
+meta {
+  name: AddInviteCode
+  type: graphql
+  seq: 1
+}
+
+post {
+  url: {{link_graphql}}
+  body: graphql
+  auth: none
+}
+
+body:graphql {
+  mutation AddInviteCode($code: String!, $nUses: Int!) {
+    addInviteCode(code: $code, nUses: $nUses) {
+      success
+      resultCode
+      resultMessage
+    }
+  }
+  
+}
+
+body:graphql:vars {
+  {
+  	"code": "SOMECODE123",
+  	"nUses": 3
+  }
+}

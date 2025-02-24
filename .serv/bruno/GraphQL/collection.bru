@@ -1,0 +1,9 @@
+tests {
+  test("Basic response check",() => {
+    expect(res.getStatus()).to.equal(200);
+    
+    const body = res.getBody();
+    expect(body.errors, 'GraphQL returned errors.').to.not.exist;
+    expect(body.data, 'Missing "data" field.').to.exist;
+  });
+}

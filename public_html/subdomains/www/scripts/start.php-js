@@ -1,0 +1,31 @@
+<?php
+namespace TeacherStory\Pages\WWW\Scripts;
+
+use LDLib\Server\ServerContext;
+use Swoole\Http\Request;
+use Swoole\Http\Response;
+
+class Start {
+    private static ?string $c_hash = null;
+
+    public static function getHash() {
+        return self::$c_hash ??= hash('md5',self::getPage(withHash:false));
+    }
+
+    public static function getPage(?Request $request=null, ?Response $response=null, bool $withHash=true) {
+        $response?->header('Content-Type','text/javascript');
+        $js = <<<JAVASCRIPT
+        class Start {
+            static resetBody() {
+                const eRouter = stringToNodes(`<c-router style="width:100vw; height:100vh;"></c-router>`)[0];
+                document.querySelector('body').replaceChildren(eRouter);
+                eRouter.loadContent('/');
+            }
+        }
+
+        JAVASCRIPT;
+        if ($withHash) $response?->header('ETag',self::getHash());
+        return ($request != null && $response != null) ? ServerContext::applyContentEncoding($request,$response,$js) : $js;
+    }
+}
+?>

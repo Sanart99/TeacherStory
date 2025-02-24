@@ -1,0 +1,6 @@
+.etc/*
+node_modules/*
+vendor/*
+tmp/*
+*.pid
+.env

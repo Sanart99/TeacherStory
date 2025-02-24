@@ -1,0 +1,22 @@
+meta {
+  name: ResetCache
+  type: graphql
+  seq: 4
+}
+
+post {
+  url: {{link_graphql}}
+  body: graphql
+  auth: none
+}
+
+body:graphql {
+  mutation ResetCache {
+    resetCache {
+      success
+      resultCode
+      resultMessage
+    }
+  }
+  
+}

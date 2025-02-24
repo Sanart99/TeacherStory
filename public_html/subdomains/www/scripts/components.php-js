@@ -1,0 +1,75 @@
+<?php
+namespace TeacherStory\Pages\WWW\Scripts;
+
+use Components\Containers\WideTopBorder;
+use Components\Buttons\Button;
+use Components\Containers\Router;
+use LDLib\Server\ServerContext;
+use Swoole\Http\Request;
+use Swoole\Http\Response;
+
+class Components {
+    private static ?string $c_hash = null;
+
+    public static function getHash() {
+        return self::$c_hash ??= hash('md5',self::getPage(withHash:false));
+    }
+
+    public static function getPage(?Request $request=null, ?Response $response=null, bool $withHash=true) {
+        $response?->header('Content-Type','text/javascript');
+        $js = <<<JAVASCRIPT
+        class BaseElement extends HTMLElement {
+            listeners = new Set();
+
+            constructor() {
+                super();
+
+                this.classList.add('component');
+
+                let parentHost = this.getRootNode()?.host;
+                while (parentHost != null) {
+                    if (parentHost instanceof Router) { this.router = parentHost; break; }
+                    parentHost = parentHost?.getRootNode()?.host;
+                }
+            }
+
+            listenToComponentEvents(c,f) {
+                if (!(c instanceof BaseElement)) throw new Error('Not a compatible component.');
+                c.listeners.add({id:this,f:f});
+            }
+
+            stopListeningToComponentEvents(component,f) {
+                component.listeners.delete({id:this,f:f});
+            }
+
+            emitEvent(eo) {
+                if (!eo instanceof EventObject) throw new Error('Not an EventObject.');
+                if (Events.loggingEnabled) this.#eventLog(`· \${eo.name}`,eo.data);
+                for (const listener of this.listeners) listener.f(eo);
+            }
+
+            #eventLog(msg,o) {
+                console.log(
+                    `%cEVENT%c:\${this.constructor.name} \${msg}: %O`,
+                    'background: #9f9f9f; color:white; border-radius:2px; display:inline-block; padding: 0px 4px',
+                    'background: unset; color:unset',
+                    o
+                );
+            }
+        }
+
+        JAVASCRIPT;
+
+        // Buttons
+        $js .= PHP_EOL.Button::getComponentJSClass(true);
+
+        // Containers
+        $js .= PHP_EOL.Router::getComponentJSClass('www',true);
+        $js .= PHP_EOL.WideTopBorder::getComponentJSClass(true);
+
+
+        if ($withHash) $response?->header('ETag',self::getHash());
+        return ($request != null && $response != null) ? ServerContext::applyContentEncoding($request,$response,$js) : $js;
+    }
+}
+?>

@@ -1,0 +1,2 @@
+Export database
+mariadb-dump -u root teacherstory --socket=$TMP/mariadb/mariadb.sock --no-data=true --events=true --routines=true | sed 's/ AUTO_INCREMENT=[0-9]*//g' > .serv/db/create_tables.sql

@@ -1,0 +1,58 @@
+<?php
+namespace TeacherStory\Pages\WWW\Scripts\SW;
+
+use LDLib\Server\ServerContext;
+use Swoole\Http\Request;
+use Swoole\Http\Response;
+
+class SW {
+    private static ?string $c_hash = null;
+
+    public static function getHash() {
+        return self::$c_hash ??= hash('md5',self::getPage(withHash:false));
+    }
+
+    public static function getPage(?Request $request=null, ?Response $response=null, bool $withHash=true) {        
+        $response?->setHeader('Content-Type','text/javascript');
+        $response?->setHeader('Service-Worker-Allowed','/');
+
+        $v = <<<JAVASCRIPT
+        self.importScripts('init.js');
+
+        self.addEventListener('message',(ev) => {
+            log('message: '+ev?.data);
+            const data = ev?.data;
+
+            if (typeof data === 'string') {
+                if (data.startsWith('give ')) doGive(ev);
+                else if (data === 'check swHash') updateCheck();
+                else if (data === 'skip waiting') self.skipWaiting();
+            }
+        });
+
+        self.addEventListener('push',(ev) => {
+            log('push','info');
+            self.clients.matchAll().then(clients => {
+                clients.forEach(client => log(client));
+            });
+        });
+
+        function doGive(ev) {
+            const a = ev.data.split(' ');
+            switch (a[1]) {
+                case 'sw_infos': 
+                    ev.source.postMessage({name:'sw_infos',data:{hash_init,hash_sw,mainCacheName,resCacheName,swHash}});
+                    break;
+                case 'init_files':
+                    ev.source.postMessage({name:'init_files', data:{scripts:scriptsForAfterInit, styles:stylesForAfterInit}});
+                    break;
+                default: break;
+            }
+        }
+
+        JAVASCRIPT;
+        if ($withHash) $response?->header('ETag',self::getHash());
+        return ($request != null && $response != null) ? ServerContext::applyContentEncoding($request,$response,$v) : $v;
+    }
+}
+?>

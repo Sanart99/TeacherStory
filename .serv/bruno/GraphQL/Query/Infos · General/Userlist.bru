@@ -1,0 +1,38 @@
+meta {
+  name: Userlist
+  type: graphql
+  seq: 2
+}
+
+post {
+  url: {{link_graphql}}
+  body: graphql
+  auth: none
+}
+
+body:graphql {
+  query {
+    userlist(first: 20) {
+      pageInfo {
+        hasNextPage
+        hasPreviousPage
+        startCursor
+        endCursor
+        pageCount
+        currPage
+      }
+      edges {
+        node {
+          ... on RegisteredUser {
+            id
+            dbId
+            name
+            roles
+          }
+        }
+        cursor
+      }
+    }
+  }
+  
+}
