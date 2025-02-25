@@ -1,0 +1,40 @@
+meta {
+  name: Teacher_Act
+  type: graphql
+  seq: 2
+}
+
+post {
+  url: {{link_graphql}}
+  body: graphql
+  auth: none
+}
+
+body:graphql {
+  mutation Teacher_Act(
+    $classroomNumber:Int!,
+  	$action:TeacherAction!
+  ) {
+    teacher_act(classroomNumber:$classroomNumber, action:$action) {
+      success
+      resultCode
+      resultMessage
+    }
+  }
+  
+}
+
+body:graphql:vars {
+  {
+    "classroomNumber": 1,
+    "action": {
+      "actionId": 1,
+      "targets": [
+        {
+          "type": "PUPIL",
+          "value": 2
+        }
+      ]
+    }
+  }
+}

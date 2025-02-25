@@ -259,7 +259,10 @@ $onWorkerStart = function() {
     require_once __DIR__.'/api/GraphQL.php';
     require_once __DIR__.'/api/Schema.php';
     require_once __DIR__.'/lib/Auth.php';
+    require_once __DIR__.'/lib/Classroom.php';
     require_once __DIR__.'/lib/Context.php';
+    require_once __DIR__.'/lib/Paths.php';
+    require_once __DIR__.'/lib/Pupil.php';
     require_once __DIR__.'/lib/User.php';
     require_once __DIR__.'/public_html/components/Buttons/Button.php';
     require_once __DIR__.'/public_html/components/Containers/Div.php';

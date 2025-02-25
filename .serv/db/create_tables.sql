@@ -17,6 +17,45 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
+-- Table structure for table `classic_classrooms`
+--
+
+DROP TABLE IF EXISTS `classic_classrooms`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `classic_classrooms` (
+  `player_id` bigint(20) unsigned NOT NULL,
+  `number` int(10) unsigned NOT NULL,
+  `layout` longtext NOT NULL,
+  `creation_date` datetime NOT NULL,
+  `last_action_date` datetime NOT NULL,
+  PRIMARY KEY (`player_id`,`number`),
+  CONSTRAINT `fk_classic_classrooms__users__id` FOREIGN KEY (`player_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `chk_json_layout` CHECK (json_valid(`layout`))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `classic_pupils`
+--
+
+DROP TABLE IF EXISTS `classic_pupils`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `classic_pupils` (
+  `player_id` bigint(20) unsigned NOT NULL,
+  `classroom_number` int(10) unsigned NOT NULL,
+  `number` int(10) NOT NULL,
+  `name` varchar(40) NOT NULL,
+  `base_hp` int(10) NOT NULL,
+  `base_protection` int(10) NOT NULL,
+  `assigned_seat` int(10) unsigned DEFAULT NULL,
+  PRIMARY KEY (`player_id`,`classroom_number`,`number`),
+  CONSTRAINT `fk_classic_pupils__classic_classrooms__id` FOREIGN KEY (`player_id`, `classroom_number`) REFERENCES `classic_classrooms` (`player_id`, `number`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `connections`
 --
 
@@ -494,4 +533,4 @@ DELIMITER ;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-01-05  8:03:47
+-- Dump completed on 2025-02-25 17:18:15

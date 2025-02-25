@@ -2,7 +2,7 @@
 namespace TeacherStory\Schema;
 
 use GraphQL\Error\{Error, InvariantViolation};
-use GraphQL\Language\AST\{Node, StringValueNode};
+use GraphQL\Language\AST\{IntValueNode, ListValueNode, Node, StringValueNode};
 use GraphQL\Type\Definition\{InputObjectType, InterfaceType, Type, ObjectType, PhpEnumType, ResolveInfo, ScalarType, UnionType};
 use LDLib\Context\Context;
 use LDLib\{ErrorType,SuccessType,PageInfo,TypedException,OperationResult, PaginationVals, WSMessage};
@@ -21,6 +21,7 @@ use TeacherStory\DataFetcher\DataFetcher;
 use Swoole\Timer;
 use Ds\Set;
 use LDLib\GraphQL\ISchemaGenerator;
+use TeacherStory\Classroom\Classroom;
 
 use function LDLib\Utils\ArrayTools\array_merge_recursive_distinct;
 
@@ -470,6 +471,35 @@ class MutationType extends ObjectType {
                         return $res;
                    },
                    'complexity' => fn($childN) => $childN + self::$processComplexity + SimpleOperationType::$processComplexity
+                ],
+                /** Etc **/
+                'initFirstClassroom' => [
+                    'type' => fn() => Type::nonNull(Types::SimpleOperation()),
+                    'resolve' => function ($o,$args,$context) {
+                        $user = $context->getAuthenticatedUser();
+                        if ($user == null) return new OperationResult(ErrorType::NOT_AUTHENTICATED);
+                        $pdo = $context->getLDPDO();
+                        $res = Classroom::generateNewClassicClassroom($pdo,$user->id,1);
+                        $pdo->toPool();
+                        return $res;
+                    },
+                    'complexity' => fn($childN) => $childN + self::$processComplexity
+                ],
+                'teacher_act' => [
+                    'type' => fn() => Type::nonNull(Types::SimpleOperation()),
+                    'args' => [
+                        'classroomNumber' => Type::nonNull(Type::int()),
+                        'action' => Type::nonNull(Types::TeacherClassroomAction())
+                    ],
+                    'resolve' => function ($o,$args,$context) {
+                        $user = $context->getAuthenticatedUser();
+                        if ($user == null) return new OperationResult(ErrorType::NOT_AUTHENTICATED);
+                        $pdo = $context->getLDPDO();
+                        $res = Classroom::doTeacherAction($pdo,$user->id,$args['classroomNumber'],$args['action']['actionId'],$args['action']['targets']);
+                        $pdo->toPool();
+                        return $res;
+                    },
+                    'complexity' => fn($childN) => $childN + self::$processComplexity
                 ]
             ]
         ]);
@@ -730,7 +760,67 @@ class PageInfoType extends ObjectType {
     }
 }
 
+/***** Input Types *****/
+
+class TeacherClassroomActionType extends InputObjectType {
+    public function __construct() {
+        $config = [
+            'fields' => [
+                'actionId' => Type::nonNull(Type::int()),
+                'targets' => Type::nonNull(Type::listOf(Types::ClassroomActionTarget()))
+            ]
+        ];
+        parent::__construct($config);
+    }
+}
+
+class ClassroomActionTargetType extends InputObjectType {
+    public function __construct() {
+        $config = [
+            'fields' => [
+                'type' => Type::nonNull(Types::ClassroomActionTargetType()),
+                'identifier' => Type::nonNull(Types::ClassroomActionTargetIdentifier())
+            ]
+        ];
+        parent::__construct($config);
+    }
+}
+
 /***** Scalars *****/
+
+class ClassroomActionTargetIdentifierType extends ScalarType {
+    public function serialize($value) {
+        if (is_string($value) || is_int($value)) return $value;
+        if (is_array($value)) {
+            foreach ($value as $vv) if (!is_int($vv) && !is_string($vv)) throw new InvariantViolation("Invalid value inside ClassroomActionTargetIdentifier: ".\GraphQL\Utils\Utils::printSafe($vv));
+            return $value;
+        }
+        throw new InvariantViolation("Could not serialize following value as ClassroomActionTargetIdentifier: ".\GraphQL\Utils\Utils::printSafe($value));
+    }
+
+    public function parseValue($value) {
+        if (is_string($value) || is_int($value)) return $value;
+        if (is_array($value)) {
+            foreach ($value as $vv) if (!is_int($vv) && !is_string($vv)) throw new Error("Invalid value inside ClassroomActionTargetIdentifier: ".\GraphQL\Utils\Utils::printSafeJson($vv));
+            return $value;
+        }
+        throw new Error("Cannot represent following value as ClassroomActionTargetIdentifier: ".\GraphQL\Utils\Utils::printSafeJson($value));
+    }
+
+    public function parseLiteral(Node $valueNode, ?array $variables = null) {
+        if ($valueNode instanceof StringValueNode || $valueNode instanceof IntValueNode) return $valueNode->value;
+        if ($valueNode instanceof ListValueNode) {
+            $a = [];
+            foreach ($valueNode->values as $vv) {
+                if (!($vv instanceof StringValueNode) && !($vv instanceof IntValueNode))
+                    throw new Error('Query error: Found a value type that is neither a string nor an int in listable: '.$valueNode->kind, [$valueNode]);
+                $a[] = $vv->value;
+            }
+            return $a;
+        }
+        throw new Error('Query error: Can only parse a string or an int, got: '.$valueNode->kind, [$valueNode]);
+    }
+}
 
 class DateIntervalType extends ScalarType {
     public function serialize($value) {
@@ -1252,7 +1342,24 @@ class Types {
         return self::$types['PageInfo'] ??= new PageInfoType();
     }
 
+    /***** Input Types *****/
+
+    public static function TeacherClassroomAction():TeacherClassroomActionType {
+        return self::$types['TeacherClassroomAction'] ??= new TeacherClassroomActionType();
+    }
+
+    public static function ClassroomActionTarget():ClassroomActionTargetType {
+        return self::$types['ClassroomActionTarget'] ??= new ClassroomActionTargetType();
+    }
+    public static function ClassroomActionTargetType():PhpEnumType {
+        return self::$types['ClassroomActionTargetType'] ??= new PhpEnumType(\TeacherStory\Classroom\ClassroomActionTargetType::class);
+    }
+
     /***** Scalars *****/
+
+    public static function ClassroomActionTargetIdentifier():ClassroomActionTargetIdentifierType {
+        return self::$types['ClassroomActionTargetIdentifier'] ??= new ClassroomActionTargetIdentifierType();
+    }
 
     public static function DateTime():DateTimeType {
         return self::$types['DateTime'] ??= new DateTimeType();

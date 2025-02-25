@@ -1,0 +1,22 @@
+meta {
+  name: InitFirstClassroom
+  type: graphql
+  seq: 1
+}
+
+post {
+  url: {{link_graphql}}
+  body: graphql
+  auth: none
+}
+
+body:graphql {
+  mutation InitFirstClassroom {
+    initFirstClassroom {
+      success
+      resultCode
+      resultMessage
+    }
+  }
+  
+}
